@@ -17,7 +17,7 @@ export type FiscalConfig = {
   social: {
     sasuEmployerCostPerNetSalary: number;
     tnsContributionsPerNetIncome: number;
-    tnsCsgCrdsRate: number;
+    activityCsgCrdsRate: number;
     tnsNonDeductibleCsgShare: number;
   };
   holding: { parentSubsidiaryTaxableShare: number; holdingTaxRate: number };
@@ -57,7 +57,7 @@ export const FISCAL_2026: FiscalConfig = {
     // Planning ratios, not statutory rates: actual payroll/TNS bases vary by situation.
     sasuEmployerCostPerNetSalary: 1.82,
     tnsContributionsPerNetIncome: 0.45,
-    tnsCsgCrdsRate: 0.097,
+    activityCsgCrdsRate: 0.097,
     tnsNonDeductibleCsgShare: 0.029,
   },
   holding: { parentSubsidiaryTaxableShare: 0.05, holdingTaxRate: 0.25 },

@@ -56,4 +56,11 @@ describe('simulation', () => {
     expect(eurl.breakdown.contributedDividend).toBeGreaterThan(0);
     expect(eurl.socialContributions).toBeGreaterThan(eurl.breakdown.netSalary * 0.45);
   });
+
+  it('applies 18.6% social levies to non-professional SASU IR profit', () => {
+    const result = simulate({ ...defaultSimulationInput, sasuIrProfessionalActivity: false });
+    const sasuIr = result.scenarios.find((s) => s.id === 'sasu_ir')!;
+    expect(sasuIr.socialContributions).toBeCloseTo(result.operatingProfit * 0.186, 2);
+    expect(sasuIr.warnings.join(' ')).toContain('18,6 %');
+  });
 });

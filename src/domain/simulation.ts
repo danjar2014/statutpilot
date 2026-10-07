@@ -12,6 +12,7 @@ export type SimulationInput = {
   shareCapital: number;
   desiredDividends: number;
   holdingReinvestmentRate: number;
+  sasuIrProfessionalActivity: boolean;
 };
 
 export type ScenarioId = 'sasu_is' | 'sasu_ir' | 'sasu_holding' | 'eurl_ir' | 'eurl_is';
@@ -121,13 +122,22 @@ export function simulate(input: SimulationInput, config: FiscalConfig = FISCAL_2
   // SASU IR: provisional treatment. Profit is taxed personally; available cash remains in the company
   // until actually withdrawn, but is shown as personal economic net for comparability.
   const sasuIrTax = incrementalHouseholdTax(operatingProfit, input, config);
-  const sasuIrSocial = operatingProfit * config.social.tnsCsgCrdsRate;
+  const sasuIrSocialRate = input.sasuIrProfessionalActivity
+    ? config.social.activityCsgCrdsRate
+    : config.capital.socialLevies;
+  const sasuIrSocial = operatingProfit * sasuIrSocialRate;
   const sasuIrScenario: ScenarioResult = {
     id: 'sasu_ir', label: 'SASU à l’IR', personalNet: money(operatingProfit - sasuIrTax - sasuIrSocial),
     socialContributions: sasuIrSocial, incomeTax: sasuIrTax, corporateTax: 0, capitalLevies: 0,
     companyCash: 0, holdingCash: 0,
     protection: { health: 'À confirmer selon rémunération et doctrine 2026', retirement: 'Aucun droit supposé sans rémunération cotisée' },
-    warnings: ['Traitement social SASU à l’IR 2026 provisoire: CSG/CRDS 9,7 % appliquée au bénéfice.', 'Le bénéfice est imposé même s’il reste en trésorerie.', 'Option IR temporaire et soumise à conditions.'],
+    warnings: [
+      input.sasuIrProfessionalActivity
+        ? 'Activité professionnelle déclarée: CSG/CRDS sur revenus d’activité estimée à 9,7 %; traitement SASU à l’IR à valider avec l’Urssaf.'
+        : 'Activité non professionnelle déclarée: prélèvements sociaux sur revenus du patrimoine de 18,6 % en 2026.',
+      'Le bénéfice est imposé même s’il reste en trésorerie.',
+      'Option IR temporaire et soumise à conditions.',
+    ],
     breakdown: { operatingProfit, taxablePersonalProfit: operatingProfit },
   };
 
@@ -209,4 +219,5 @@ export const defaultSimulationInput: SimulationInput = {
   shareCapital: 1_000,
   desiredDividends: 0,
   holdingReinvestmentRate: 100,
+  sasuIrProfessionalActivity: true,
 };

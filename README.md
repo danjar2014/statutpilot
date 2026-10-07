@@ -35,7 +35,7 @@ npm run build
 - EURL, gérant associé unique : statut TNS. À l'IR, assiette sociale sur le bénéfice ; à l'IS, sur la rémunération et la fraction des dividendes dépassant 10 % du capital. Le montant de cotisations reste une approximation paramétrable : les taux réels sont progressifs, plafonnés et dépendent de l'activité.
 - Holding : régime mère-fille modélisé avec une quote-part de frais et charges de 5 % soumise à l'IS, sous réserve des conditions de détention.
 - IR : barème publié en 2026 applicable aux revenus 2025 utilisé comme proxy. Le plafonnement du quotient familial, la décote, les crédits/réductions et de nombreux cas particuliers ne sont pas reproduits.
-- SASU à l'IR : scénario expérimental. L'imposition directe du bénéfice et la non-déductibilité de la rémunération de l'associé actif sont documentées, mais le calcul social n'est pas couvert par le simulateur officiel Urssaf ; il doit être validé au cas par cas.
+- SASU à l'IR : scénario expérimental. L'application distingue désormais l'activité professionnelle (contributions sur revenus d'activité estimées) de l'activité non professionnelle (prélèvements sociaux sur le patrimoine à 18,6 % en 2026). Le calcul social n'est pas couvert par le simulateur officiel Urssaf et doit être validé au cas par cas.
 
 Toutes les sorties différencient les règles officielles, les estimations et les points à valider.
 
