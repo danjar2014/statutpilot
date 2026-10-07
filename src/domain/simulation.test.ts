@@ -129,9 +129,41 @@ describe('simulation', () => {
     expect(eurl.breakdown.netSalary).toBe(48_000);
   });
 
-  it('applies 18.6% social levies to non-professional SASU IR profit', () => {
-    const result = simulate({ ...defaultSimulationInput, sasuIrProfessionalActivity: false });
+  it('models a non-deductible president salary in SASU IR and keeps 18.6% levies on the full profit', () => {
+    const noSalary = simulate({
+      ...defaultSimulationInput,
+      revenue: 100_000,
+      expenses: Object.fromEntries(Object.keys(defaultSimulationInput.expenses).map(key => [key, 0])) as typeof defaultSimulationInput.expenses,
+      household: { maritalStatus: 'single', spouseTaxableIncome: 0, children: 0 },
+      sasuSalaryEnabled: false,
+      sasuDesiredNetSalary: 0,
+    }).scenarios.find((scenario) => scenario.id === 'sasu_ir')!;
+    const withSalary = simulate({
+      ...defaultSimulationInput,
+      revenue: 100_000,
+      expenses: Object.fromEntries(Object.keys(defaultSimulationInput.expenses).map(key => [key, 0])) as typeof defaultSimulationInput.expenses,
+      household: { maritalStatus: 'single', spouseTaxableIncome: 0, children: 0 },
+      sasuSalaryEnabled: true,
+      sasuDesiredNetSalary: 20_000,
+    }).scenarios.find((scenario) => scenario.id === 'sasu_ir')!;
+
+    expect(withSalary.breakdown.taxablePersonalProfit).toBe(100_000);
+    expect(withSalary.breakdown.profitSocialLevies).toBe(18_600);
+    expect(withSalary.breakdown.netSalary).toBe(20_000);
+    expect(withSalary.breakdown.salaryCost).toBe(36_400);
+    expect(withSalary.socialContributions).toBe(35_000);
+    expect(withSalary.incomeTax).toBe(noSalary.incomeTax);
+    expect(withSalary.personalNet).toBe(noSalary.personalNet - 16_400);
+  });
+
+  it('applies 18.6% social levies directly to SASU IR profit without a qualification question', () => {
+    const result = simulate({
+      ...defaultSimulationInput,
+      sasuSalaryEnabled: false,
+      sasuDesiredNetSalary: 0,
+    });
     const sasuIr = result.scenarios.find((s) => s.id === 'sasu_ir')!;
+    expect(sasuIr.breakdown.profitSocialLevies).toBeCloseTo(result.operatingProfit * 0.186, 2);
     expect(sasuIr.socialContributions).toBeCloseTo(result.operatingProfit * 0.186, 2);
     expect(sasuIr.warnings.join(' ')).toContain('18,6 %');
   });

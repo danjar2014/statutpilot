@@ -4,7 +4,7 @@ Simulateur pédagogique en français pour comparer **SASU à l'IS**, **SASU à l
 
 L'application commence par un questionnaire guidé : l'utilisateur choisit sa priorité (revenu, réinvestissement, protection ou équilibre) et au moins deux formes à confronter. Les questions et le tableau final sont limités à cette sélection. Une option est mise en avant selon la priorité choisie, avec une explication et un avertissement rappelant le caractère indicatif du classement.
 
-Le chiffre d'affaires peut être saisi directement ou calculé automatiquement à partir du **TJM HT × nombre de jours facturés**. Pour la SASU à l'IS, avec ou sans holding, l'utilisateur choisit explicitement une simulation **avec salaire** ou **sans salaire**. La rémunération EURL reste indépendante afin de ne pas fausser la comparaison.
+Le chiffre d'affaires peut être saisi directement ou calculé automatiquement à partir du **TJM HT × nombre de jours facturés**. Pour la SASU à l'IS comme à l'IR, avec ou sans holding, l'utilisateur choisit explicitement une simulation **avec salaire** ou **sans salaire**. Le coût total du salaire est estimé à 1,82 fois le net. À l'IS il est déduit du résultat fiscal; à l'IR la rémunération du président associé n'est pas déduite du bénéfice attribué à l'associé et le moteur retient, par prudence, la non-déduction du coût social estimé. La rémunération EURL reste indépendante afin de ne pas fausser la comparaison.
 
 Elle calcule ensuite les charges modulables et affiche un comparatif lisible du net personnel, des cotisations, de l'IR, de l'IS, des prélèvements sur le capital et de la trésorerie conservée.
 
@@ -41,7 +41,7 @@ npm run build
 - EURL, gérant associé unique : statut TNS. À l'IR, assiette sociale sur le bénéfice ; à l'IS, sur la rémunération et la fraction des dividendes dépassant 10 % du capital. Le montant de cotisations reste une approximation paramétrable : les taux réels sont progressifs, plafonnés et dépendent de l'activité.
 - Holding : régime mère-fille modélisé avec une quote-part de frais et charges de 5 % soumise à l'IS, sous réserve des conditions de détention.
 - IR : barème publié en 2026 applicable aux revenus 2025 utilisé comme proxy. Le plafonnement du quotient familial, la décote, les crédits/réductions et de nombreux cas particuliers ne sont pas reproduits.
-- SASU à l'IR : scénario expérimental. L'application distingue désormais l'activité professionnelle (contributions sur revenus d'activité estimées) de l'activité non professionnelle (prélèvements sociaux sur le patrimoine à 18,6 % en 2026). Le calcul social n'est pas couvert par le simulateur officiel Urssaf et doit être validé au cas par cas.
+- SASU à l'IR : scénario expérimental. Par choix de modélisation, l'application applique directement 18,6 % de prélèvements sociaux à la totalité du bénéfice et ne demande plus de qualifier l'activité de professionnelle ou non professionnelle. Un éventuel salaire de président supporte en plus les cotisations d'assimilé salarié estimées; son coût réduit la trésorerie mais pas le bénéfice fiscal attribué à l'associé. Le simulateur officiel Urssaf ne couvre pas la SASU à l'IR : ce traitement doit être validé au cas par cas.
 - Micro-entreprise : cotisations et CFP calculées sur 100 % du CA encaissé. L'IR est estimé après l'abattement micro correspondant à l'activité; les charges réelles diminuent le cash mais ne sont pas fiscalement déductibles. Le seuil 2026 est de 83 600 € pour les services/BNC et 203 100 € pour la vente.
 - ACRE micro : l'année 1 avec/sans ACRE et l'année 2 avec reliquat/sans ACRE sont comparées. Le reliquat dépend du trimestre de création. Pour les créations à compter du 1er juillet 2026, l'exonération n'est plus que de 25 % des cotisations concernées.
 - Portage salarial : estimation à partir du CA HT, des frais de gestion saisis, des frais professionnels remboursables, puis des cotisations patronales et salariales. Les conventions et pratiques de chaque société de portage peuvent modifier fortement le résultat.
@@ -65,6 +65,7 @@ Sources vérifiées le **7 octobre 2026** :
 - [Service-Public Entreprendre — régime fiscal et social de l'EURL](https://entreprendre.service-public.fr/vosdroits/F37777)
 - [Urssaf — cotisations des indépendants](https://www.urssaf.fr/accueil/independant/comprendre-payer-cotisations/vos-cotisations.html)
 - [Urssaf — simulateur SASU et limite SASU à l'IR](https://mon-entreprise.urssaf.fr/simulateurs/comparaison-r%C3%A9gimes-sociaux/SASU/dirigeant/assimil%C3%A9-salari%C3%A9)
+- [BOFiP — rémunération non déductible des associés de SAS ayant opté pour l'IR](https://bofip.impots.gouv.fr/bofip/6333-PGP.html/identifiant=BOI-RSA-GER-10-30-20221215)
 - [BOFiP — conditions de l'option SAS/SASU à l'IR](https://bofip.impots.gouv.fr/bofip/3600-PGP.html/identifiant%3DBOI-BIC-CHAMP-70-20-40-10-20160302)
 - [BOFiP — durée maximale de cinq exercices de l'option IR](https://bofip.impots.gouv.fr/bofip/3601-PGP.html/identifiant%3DBOI-BIC-CHAMP-70-20-40-20-20140325)
 - [BOFiP — régime mère-fille et quote-part](https://bofip.impots.gouv.fr/bofip/1926-PGP.html/identifiant%3DBOI-IS-BASE-10-10-20-20240626)

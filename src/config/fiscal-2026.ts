@@ -18,7 +18,6 @@ export type FiscalConfig = {
     employerContributionRate: number;
     sasuEmployerCostPerNetSalary: number;
     tnsContributionsPerNetIncome: number;
-    activityCsgCrdsRate: number;
     tnsNonDeductibleCsgShare: number;
   };
   holding: { parentSubsidiaryTaxableShare: number; holdingTaxRate: number };
@@ -75,7 +74,6 @@ export const FISCAL_2026: FiscalConfig = {
     employerContributionRate: 0.42,
     sasuEmployerCostPerNetSalary: 1.82,
     tnsContributionsPerNetIncome: 0.45,
-    activityCsgCrdsRate: 0.097,
     tnsNonDeductibleCsgShare: 0.029,
   },
   holding: { parentSubsidiaryTaxableShare: 0.05, holdingTaxRate: 0.25 },
@@ -114,6 +112,16 @@ export const FISCAL_2026: FiscalConfig = {
       label: 'Barème 2026 et traitement SASU à l’IR à confirmer à publication',
       url: 'https://www.impots.gouv.fr/',
       status: 'to-verify',
+    },
+    {
+      label: 'BOFiP — rémunération non déductible des associés de SAS ayant opté pour l’IR',
+      url: 'https://bofip.impots.gouv.fr/bofip/6333-PGP.html/identifiant=BOI-RSA-GER-10-30-20221215',
+      status: 'official',
+    },
+    {
+      label: 'Urssaf — simulateur SASU limité à l’IS',
+      url: 'https://mon-entreprise.urssaf.fr/simulateurs/sasu',
+      status: 'official',
     },
   ],
 };

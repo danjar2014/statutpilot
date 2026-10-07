@@ -17,7 +17,6 @@ export type SimulationInput = {
   shareCapital: number;
   desiredDividends: number;
   holdingReinvestmentRate: number;
-  sasuIrProfessionalActivity: boolean;
   employeeCount: number;
   employeeGrossMonthlySalary: number;
   microActivity: 'sales' | 'bic_services' | 'bnc';
@@ -54,7 +53,7 @@ export type DecisionObjective = 'personal_net' | 'reinvestment' | 'protection' |
 
 const protectionScore = (scenario: ScenarioResult, input: SimulationInput) => {
   if (scenario.id === 'portage') return 4;
-  if (scenario.id === 'sasu_is' || scenario.id === 'sasu_holding') return input.sasuSalaryEnabled && input.sasuDesiredNetSalary > 0 ? 3 : 1;
+  if (scenario.id === 'sasu_is' || scenario.id === 'sasu_ir' || scenario.id === 'sasu_holding') return input.sasuSalaryEnabled && input.sasuDesiredNetSalary > 0 ? 3 : 1;
   if (scenario.id === 'eurl_ir' || scenario.id === 'eurl_is') return 2;
   if (scenario.id.startsWith('micro_')) return 1.5;
   return 1;
@@ -216,26 +215,34 @@ export function simulate(input: SimulationInput, config: FiscalConfig = FISCAL_2
     breakdown: { operatingProfit, salaryCost, netSalary: paidSasuSalary, grossDividends: sasuDividend.gross },
   };
 
-  // SASU IR: provisional treatment. Profit is taxed personally; available cash remains in the company
-  // until actually withdrawn, but is shown as personal economic net for comparability.
+  // SASU IR: product assumption requested for comparison. The president's remuneration follows the
+  // assimilated-employee payroll estimate but is not deducted from the taxable pass-through profit.
   const sasuIrTax = incrementalHouseholdTax(operatingProfit, input, config);
-  const sasuIrSocialRate = input.sasuIrProfessionalActivity
-    ? config.social.activityCsgCrdsRate
-    : config.capital.socialLevies;
-  const sasuIrSocial = operatingProfit * sasuIrSocialRate;
+  const sasuIrProfitSocial = operatingProfit * config.capital.socialLevies;
+  const sasuIrAvailableAfterSalary = money(operatingProfit - salaryCost);
+  const sasuIrPersonalNet = money(paidSasuSalary + sasuIrAvailableAfterSalary - sasuIrTax - sasuIrProfitSocial);
   const sasuIrScenario: ScenarioResult = {
-    id: 'sasu_ir', label: 'SASU à l’IR', personalNet: money(operatingProfit - sasuIrTax - sasuIrSocial),
-    socialContributions: sasuIrSocial, incomeTax: sasuIrTax, corporateTax: 0, capitalLevies: 0,
+    id: 'sasu_ir', label: 'SASU à l’IR', personalNet: sasuIrPersonalNet,
+    socialContributions: sasuIrProfitSocial + sasuSocial, incomeTax: sasuIrTax, corporateTax: 0, capitalLevies: 0,
     companyCash: 0, holdingCash: 0,
-    protection: { health: 'À confirmer selon rémunération et doctrine 2026', retirement: 'Aucun droit supposé sans rémunération cotisée' },
+    protection: paidSasuSalary > 0
+      ? salariedProtection
+      : { health: 'Aucune cotisation de président sans salaire', retirement: 'Aucun droit supposé sans rémunération cotisée' },
     warnings: [
-      input.sasuIrProfessionalActivity
-        ? 'Activité professionnelle déclarée: CSG/CRDS sur revenus d’activité estimée à 9,7 %; traitement SASU à l’IR à valider avec l’Urssaf.'
-        : 'Activité non professionnelle déclarée: prélèvements sociaux sur revenus du patrimoine de 18,6 % en 2026.',
+      'Hypothèse produit: prélèvements sociaux de 18,6 % appliqués directement à la totalité du bénéfice imposable.',
+      'Hypothèse conservatrice: la rémunération du président et son coût social estimé ne réduisent pas le bénéfice fiscal de la SASU à l’IR.',
+      'Le ratio de coût salarial de 1,82 est une estimation; le simulateur officiel Urssaf ne gère pas la SASU à l’IR.',
       'Le bénéfice est imposé même s’il reste en trésorerie.',
       'Option IR temporaire et soumise à conditions.',
     ],
-    breakdown: { operatingProfit, taxablePersonalProfit: operatingProfit },
+    breakdown: {
+      operatingProfit,
+      salaryCost,
+      netSalary: paidSasuSalary,
+      payrollContributions: sasuSocial,
+      taxablePersonalProfit: operatingProfit,
+      profitSocialLevies: sasuIrProfitSocial,
+    },
   };
 
   // Public UI uses a 0–100 percentage. Values in 0–1 are also accepted for API callers.
@@ -363,7 +370,6 @@ export const defaultSimulationInput: SimulationInput = {
   shareCapital: 1_000,
   desiredDividends: 0,
   holdingReinvestmentRate: 100,
-  sasuIrProfessionalActivity: true,
   employeeCount: 0,
   employeeGrossMonthlySalary: 0,
   microActivity: 'bnc',
@@ -390,7 +396,6 @@ export const blankSimulationInput: SimulationInput = {
   shareCapital: 0,
   desiredDividends: 0,
   holdingReinvestmentRate: 0,
-  sasuIrProfessionalActivity: true,
   employeeCount: 0,
   employeeGrossMonthlySalary: 0,
   microActivity: 'bnc',
