@@ -48,6 +48,13 @@ npm run build
 
 Toutes les sorties différencient les règles officielles, les estimations et les points à valider.
 
+## Crédits visuels
+
+- [Consultante indépendante dans un bureau — Anna Shvets / Pexels](https://www.pexels.com/photo/woman-laptop-freelancer-indoors-12662856/)
+- [Équipe analysant des graphiques — olia danilevich / Pexels](https://www.pexels.com/photo/persons-using-laptops-on-table-with-charts-8145328/)
+
+Les images sont servies dans des dimensions adaptées via le CDN Pexels. L’image située sous les résultats est chargée à la demande pour préserver les performances.
+
 ## Sources officielles
 
 Sources vérifiées le **7 octobre 2026** :
