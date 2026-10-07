@@ -4,6 +4,8 @@ Simulateur pédagogique en français pour comparer **SASU à l'IS**, **SASU à l
 
 L'application commence par un questionnaire guidé : l'utilisateur choisit sa priorité (revenu, réinvestissement, protection ou équilibre) et au moins deux formes à confronter. Les questions et le tableau final sont limités à cette sélection. Une option est mise en avant selon la priorité choisie, avec une explication et un avertissement rappelant le caractère indicatif du classement.
 
+Le chiffre d'affaires peut être saisi directement ou calculé automatiquement à partir du **TJM HT × nombre de jours facturés**. Pour la SASU à l'IS, avec ou sans holding, l'utilisateur choisit explicitement une simulation **avec salaire** ou **sans salaire**. La rémunération EURL reste indépendante afin de ne pas fausser la comparaison.
+
 Elle calcule ensuite les charges modulables et affiche un comparatif lisible du net personnel, des cotisations, de l'IR, de l'IS, des prélèvements sur le capital et de la trésorerie conservée.
 
 Pour les salariés, l'utilisateur renseigne l'effectif et le salaire brut mensuel moyen. L'application calcule le brut annuel, les charges patronales estimées et le coût employeur total. Le taux d'estimation est centralisé dans la configuration annuelle.

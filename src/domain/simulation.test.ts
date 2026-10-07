@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blankSimulationInput, corporateTax, defaultSimulationInput, employeePayrollCost, householdShares, progressiveIncomeTax, recommendScenario, simulate } from './simulation';
+import { annualRevenue, blankSimulationInput, corporateTax, defaultSimulationInput, employeePayrollCost, householdShares, progressiveIncomeTax, recommendScenario, simulate } from './simulation';
 
 describe('fiscal calculation primitives', () => {
   it('applies reduced then standard corporate tax', () => {
@@ -33,6 +33,11 @@ describe('simulation', () => {
       employerContributions: 30_240,
       total: 102_240,
     });
+  });
+
+  it('calculates annual turnover from the daily rate and billed days when selected', () => {
+    expect(annualRevenue({ revenue: 80_000, revenueInputMode: 'daily_rate', dailyRate: 650, billableDays: 210 })).toBe(136_500);
+    expect(annualRevenue({ revenue: 80_000, revenueInputMode: 'turnover', dailyRate: 650, billableDays: 210 })).toBe(80_000);
   });
 
   it('reproduces the example operating profit and all comparison scenarios', () => {
@@ -108,6 +113,20 @@ describe('simulation', () => {
     const eurl = result.scenarios.find((s) => s.id === 'eurl_is')!;
     expect(eurl.breakdown.contributedDividend).toBeGreaterThan(0);
     expect(eurl.socialContributions).toBeGreaterThan(eurl.breakdown.netSalary * 0.45);
+  });
+
+  it('lets the user run SASU without salary while preserving a separate EURL remuneration', () => {
+    const result = simulate({
+      ...defaultSimulationInput,
+      sasuSalaryEnabled: false,
+      sasuDesiredNetSalary: 48_000,
+      desiredNetSalary: 48_000,
+    });
+    const sasu = result.scenarios.find((s) => s.id === 'sasu_is')!;
+    const eurl = result.scenarios.find((s) => s.id === 'eurl_is')!;
+    expect(sasu.breakdown.netSalary).toBe(0);
+    expect(sasu.socialContributions).toBe(0);
+    expect(eurl.breakdown.netSalary).toBe(48_000);
   });
 
   it('applies 18.6% social levies to non-professional SASU IR profit', () => {

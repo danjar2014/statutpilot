@@ -6,9 +6,14 @@ export type ExpenseKey =
 
 export type SimulationInput = {
   revenue: number;
+  revenueInputMode: 'turnover' | 'daily_rate';
+  dailyRate: number;
+  billableDays: number;
   expenses: Record<ExpenseKey, number>;
   household: { maritalStatus: 'single' | 'couple'; spouseTaxableIncome: number; children: number };
   desiredNetSalary: number;
+  sasuSalaryEnabled: boolean | null;
+  sasuDesiredNetSalary: number;
   shareCapital: number;
   desiredDividends: number;
   holdingReinvestmentRate: number;
@@ -49,7 +54,7 @@ export type DecisionObjective = 'personal_net' | 'reinvestment' | 'protection' |
 
 const protectionScore = (scenario: ScenarioResult, input: SimulationInput) => {
   if (scenario.id === 'portage') return 4;
-  if (scenario.id === 'sasu_is' || scenario.id === 'sasu_holding') return input.desiredNetSalary > 0 ? 3 : 1;
+  if (scenario.id === 'sasu_is' || scenario.id === 'sasu_holding') return input.sasuSalaryEnabled && input.sasuDesiredNetSalary > 0 ? 3 : 1;
   if (scenario.id === 'eurl_ir' || scenario.id === 'eurl_is') return 2;
   if (scenario.id.startsWith('micro_')) return 1.5;
   return 1;
@@ -78,6 +83,13 @@ export function employeePayrollCost(input: Pick<SimulationInput, 'employeeCount'
   const annualGross = count * money(finite(input.employeeGrossMonthlySalary)) * 12;
   const employerContributions = annualGross * config.social.employerContributionRate;
   return { count, annualGross, employerContributions, total: annualGross + employerContributions };
+}
+
+export function annualRevenue(input: Pick<SimulationInput, 'revenue' | 'revenueInputMode' | 'dailyRate' | 'billableDays'>) {
+  if (input.revenueInputMode === 'daily_rate') {
+    return money(finite(input.dailyRate)) * Math.max(0, Math.floor(finite(input.billableDays)));
+  }
+  return money(finite(input.revenue));
 }
 
 const expenses = (input: SimulationInput, config: FiscalConfig) => {
@@ -149,7 +161,7 @@ function microScenario(
   config: FiscalConfig,
 ): ScenarioResult {
   const activity = config.micro.activities[input.microActivity];
-  const revenue = money(input.revenue);
+  const revenue = annualRevenue(input);
   const actualExpenses = expenses(input, config);
   const contributions = revenue * socialRate;
   const cfp = revenue * activity.cfpRate;
@@ -179,15 +191,16 @@ function microScenario(
 }
 
 export function simulate(input: SimulationInput, config: FiscalConfig = FISCAL_2026): SimulationResult {
-  const operatingProfit = money(finite(input.revenue) - expenses(input, config));
-  const desiredSalary = money(input.desiredNetSalary);
-  const salaryCost = Math.min(operatingProfit, desiredSalary * config.social.sasuEmployerCostPerNetSalary);
+  const revenue = annualRevenue(input);
+  const operatingProfit = money(revenue - expenses(input, config));
+  const desiredSasuSalary = input.sasuSalaryEnabled ? money(input.sasuDesiredNetSalary) : 0;
+  const salaryCost = Math.min(operatingProfit, desiredSasuSalary * config.social.sasuEmployerCostPerNetSalary);
   const paidSasuSalary = salaryCost / config.social.sasuEmployerCostPerNetSalary;
   const sasuSocial = money(salaryCost - paidSasuSalary);
   const salaryIr = incrementalHouseholdTax(paidSasuSalary, input, config);
 
   const sasuTaxable = money(operatingProfit - salaryCost);
-  const sasuIs = corporateTax(sasuTaxable, input.revenue, config);
+  const sasuIs = corporateTax(sasuTaxable, revenue, config);
   const sasuAfterIs = money(sasuTaxable - sasuIs);
   const requestedSasuDividend = Math.min(sasuAfterIs, money(input.desiredDividends));
   const sasuDividend = dividendFlow(requestedSasuDividend, config);
@@ -256,11 +269,11 @@ export function simulate(input: SimulationInput, config: FiscalConfig = FISCAL_2
     breakdown: { operatingProfit, professionalIncome: eurlIrProfessionalIncome, taxableProfessionalIncome: eurlIrTaxable },
   };
 
-  const eurlNetSalary = Math.min(desiredSalary, operatingProfit / (1 + tnsRate));
+  const eurlNetSalary = Math.min(money(input.desiredNetSalary), operatingProfit / (1 + tnsRate));
   const eurlSocial = eurlNetSalary * tnsRate;
   const eurlSalaryCost = eurlNetSalary + eurlSocial;
   const eurlTaxable = money(operatingProfit - eurlSalaryCost);
-  const eurlIs = corporateTax(eurlTaxable, input.revenue, config);
+  const eurlIs = corporateTax(eurlTaxable, revenue, config);
   const eurlAfterIs = money(eurlTaxable - eurlIs);
   const requestedEurlDividend = input.desiredDividends > 0 ? Math.min(eurlAfterIs, input.desiredDividends) : 0;
   const exemptDividend = Math.min(requestedEurlDividend, money(input.shareCapital) * config.eurl.dividendContributionExemptionCapitalRate);
@@ -294,10 +307,10 @@ export function simulate(input: SimulationInput, config: FiscalConfig = FISCAL_2
   const microYear2Acre = microScenario('micro_y2_acre', 'Micro A2 avec reliquat ACRE', input, year2WeightedRate, year2AcreMonths, config);
   const microYear2NoAcre = microScenario('micro_y2_no_acre', 'Micro A2 sans ACRE', input, activity.socialRate, 0, config);
 
-  const portageExpenses = Math.min(money(input.portageProfessionalExpenses), money(input.revenue));
+  const portageExpenses = Math.min(money(input.portageProfessionalExpenses), revenue);
   const managementRate = Math.min(0.3, Math.max(0, finite(input.portageManagementFeeRate) / 100));
-  const managementFees = money(input.revenue) * managementRate;
-  const portageAvailable = money(input.revenue - portageExpenses - managementFees);
+  const managementFees = revenue * managementRate;
+  const portageAvailable = money(revenue - portageExpenses - managementFees);
   const portageGrossSalary = portageAvailable / (1 + config.portage.employerContributionRate);
   const portageEmployerSocial = portageAvailable - portageGrossSalary;
   const portageEmployeeSocial = portageGrossSalary * config.portage.employeeContributionRate;
@@ -315,7 +328,7 @@ export function simulate(input: SimulationInput, config: FiscalConfig = FISCAL_2
       'Les frais professionnels doivent être justifiés et acceptés par la société de portage; ils ne constituent pas du salaire net.',
       'Indemnité d’apport d’affaires, congés payés, réserve et minimum conventionnel non détaillés séparément.',
     ],
-    breakdown: { revenue: input.revenue, professionalExpenses: portageExpenses, managementFees, grossSalary: portageGrossSalary, employerContributions: portageEmployerSocial, employeeContributions: portageEmployeeSocial, netSalary: portageNetSalary },
+    breakdown: { revenue, professionalExpenses: portageExpenses, managementFees, grossSalary: portageGrossSalary, employerContributions: portageEmployerSocial, employeeContributions: portageEmployeeSocial, netSalary: portageNetSalary },
   };
 
   return {
@@ -335,6 +348,9 @@ export function simulate(input: SimulationInput, config: FiscalConfig = FISCAL_2
 
 export const defaultSimulationInput: SimulationInput = {
   revenue: 152_265,
+  revenueInputMode: 'turnover',
+  dailyRate: 0,
+  billableDays: 0,
   expenses: {
     employees: 0, vehicle: 8_000, clientMeals: 2_500, purchases: 12_000,
     software: 3_600, accounting: 2_400, insurance: 1_200, rent: 8_400,
@@ -342,6 +358,8 @@ export const defaultSimulationInput: SimulationInput = {
   },
   household: { maritalStatus: 'couple', spouseTaxableIncome: 17_743, children: 2 },
   desiredNetSalary: 48_000,
+  sasuSalaryEnabled: true,
+  sasuDesiredNetSalary: 48_000,
   shareCapital: 1_000,
   desiredDividends: 0,
   holdingReinvestmentRate: 100,
@@ -357,6 +375,9 @@ export const defaultSimulationInput: SimulationInput = {
 /** Empty form state used by the public UI. The historical example stays test-only. */
 export const blankSimulationInput: SimulationInput = {
   revenue: 0,
+  revenueInputMode: 'turnover',
+  dailyRate: 0,
+  billableDays: 0,
   expenses: {
     employees: 0, vehicle: 0, clientMeals: 0, purchases: 0,
     software: 0, accounting: 0, insurance: 0, rent: 0,
@@ -364,6 +385,8 @@ export const blankSimulationInput: SimulationInput = {
   },
   household: { maritalStatus: 'single', spouseTaxableIncome: 0, children: 0 },
   desiredNetSalary: 0,
+  sasuSalaryEnabled: null,
+  sasuDesiredNetSalary: 0,
   shareCapital: 0,
   desiredDividends: 0,
   holdingReinvestmentRate: 0,
