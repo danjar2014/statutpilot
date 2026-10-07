@@ -23,6 +23,22 @@ export type FiscalConfig = {
   };
   holding: { parentSubsidiaryTaxableShare: number; holdingTaxRate: number };
   eurl: { dividendContributionExemptionCapitalRate: number };
+  micro: {
+    activities: Record<'sales' | 'bic_services' | 'bnc', {
+      label: string;
+      revenueLimit: number;
+      socialRate: number;
+      cfpRate: number;
+      taxAllowance: number;
+    }>;
+    acreReductionBeforeJuly: number;
+    acreReductionFromJuly: number;
+  };
+  portage: {
+    defaultManagementFeeRate: number;
+    employerContributionRate: number;
+    employeeContributionRate: number;
+  };
   sources: ReadonlyArray<{ label: string; url: string; status: 'official' | 'to-verify' }>;
 };
 
@@ -64,6 +80,20 @@ export const FISCAL_2026: FiscalConfig = {
   },
   holding: { parentSubsidiaryTaxableShare: 0.05, holdingTaxRate: 0.25 },
   eurl: { dividendContributionExemptionCapitalRate: 0.1 },
+  micro: {
+    activities: {
+      sales: { label: 'Vente de marchandises (BIC)', revenueLimit: 203_100, socialRate: 0.123, cfpRate: 0.001, taxAllowance: 0.71 },
+      bic_services: { label: 'Prestations de services (BIC)', revenueLimit: 83_600, socialRate: 0.212, cfpRate: 0.003, taxAllowance: 0.5 },
+      bnc: { label: 'Activité libérale non réglementée (BNC)', revenueLimit: 83_600, socialRate: 0.256, cfpRate: 0.002, taxAllowance: 0.34 },
+    },
+    acreReductionBeforeJuly: 0.5,
+    acreReductionFromJuly: 0.25,
+  },
+  portage: {
+    defaultManagementFeeRate: 0.07,
+    employerContributionRate: 0.45,
+    employeeContributionRate: 0.22,
+  },
   sources: [
     {
       label: 'Impôt sur les sociétés (taux normal et taux réduit)',

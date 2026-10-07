@@ -15,9 +15,16 @@ export type SimulationInput = {
   sasuIrProfessionalActivity: boolean;
   employeeCount: number;
   employeeGrossMonthlySalary: number;
+  microActivity: 'sales' | 'bic_services' | 'bnc';
+  microCreationMonth: number;
+  portageManagementFeeRate: number;
+  portageProfessionalExpenses: number;
 };
 
-export type ScenarioId = 'sasu_is' | 'sasu_ir' | 'sasu_holding' | 'eurl_ir' | 'eurl_is';
+export type ScenarioId =
+  | 'sasu_is' | 'sasu_ir' | 'sasu_holding' | 'eurl_ir' | 'eurl_is'
+  | 'micro_y1_acre' | 'micro_y1_no_acre' | 'micro_y2_acre' | 'micro_y2_no_acre'
+  | 'portage';
 export type ScenarioResult = {
   id: ScenarioId;
   label: string;
@@ -107,6 +114,44 @@ const tnsProtection = {
   health: 'Travailleur non salarié (protection obligatoire, garanties variables)',
   retirement: 'Droits TNS selon le revenu cotisé',
 };
+
+function microScenario(
+  id: ScenarioId,
+  label: string,
+  input: SimulationInput,
+  socialRate: number,
+  acreMonths: number,
+  config: FiscalConfig,
+): ScenarioResult {
+  const activity = config.micro.activities[input.microActivity];
+  const revenue = money(input.revenue);
+  const actualExpenses = expenses(input, config);
+  const contributions = revenue * socialRate;
+  const cfp = revenue * activity.cfpRate;
+  const taxableIncome = revenue * (1 - activity.taxAllowance);
+  const incomeTax = incrementalHouseholdTax(taxableIncome, input, config);
+  const overLimit = revenue > activity.revenueLimit;
+  return {
+    id,
+    label,
+    personalNet: money(revenue - actualExpenses - contributions - cfp - incomeTax),
+    socialContributions: contributions + cfp,
+    incomeTax,
+    corporateTax: 0,
+    capitalLevies: 0,
+    companyCash: 0,
+    holdingCash: 0,
+    protection: tnsProtection,
+    warnings: [
+      `Cotisations calculées sur 100 % du CA encaissé; les charges réelles ne sont pas déductibles du revenu micro-fiscal.`,
+      `Abattement fiscal forfaitaire de ${Math.round(activity.taxAllowance * 100)} % (${activity.label}).`,
+      ...(acreMonths > 0 ? [`ACRE appliquée sur ${acreMonths} mois, en supposant un CA uniforme sur l’année.`] : []),
+      ...(overLimit ? [`CA supérieur au seuil micro 2026 de ${activity.revenueLimit.toLocaleString('fr-FR')} €: scénario affiché à titre d’alerte, régime à vérifier.`] : []),
+      'TVA et CFE non incluses dans le net; la TVA collectée n’est pas un revenu.',
+    ],
+    breakdown: { revenue, actualExpenses, taxableIncome, socialContributions: contributions, professionalTraining: cfp, acreMonths },
+  };
+}
 
 export function simulate(input: SimulationInput, config: FiscalConfig = FISCAL_2026): SimulationResult {
   const operatingProfit = money(finite(input.revenue) - expenses(input, config));
@@ -209,9 +254,51 @@ export function simulate(input: SimulationInput, config: FiscalConfig = FISCAL_2
     breakdown: { operatingProfit, netSalary: eurlNetSalary, salaryCost: eurlSalaryCost, grossDividends: requestedEurlDividend, contributedDividend },
   };
 
+  const activity = config.micro.activities[input.microActivity];
+  const creationMonth = Math.min(12, Math.max(1, Math.floor(finite(input.microCreationMonth) || 1)));
+  const acreReduction = creationMonth <= 6
+    ? config.micro.acreReductionBeforeJuly
+    : config.micro.acreReductionFromJuly;
+  const acreRate = activity.socialRate * (1 - acreReduction);
+  const creationQuarter = Math.floor((creationMonth - 1) / 3) + 1;
+  const year2AcreMonths = Math.max(0, (creationQuarter - 1) * 3);
+  const year2WeightedRate = activity.socialRate * (12 - year2AcreMonths) / 12
+    + acreRate * year2AcreMonths / 12;
+  const microYear1Acre = microScenario('micro_y1_acre', 'Micro A1 avec ACRE', input, acreRate, 13 - creationMonth, config);
+  const microYear1NoAcre = microScenario('micro_y1_no_acre', 'Micro A1 sans ACRE', input, activity.socialRate, 0, config);
+  const microYear2Acre = microScenario('micro_y2_acre', 'Micro A2 avec reliquat ACRE', input, year2WeightedRate, year2AcreMonths, config);
+  const microYear2NoAcre = microScenario('micro_y2_no_acre', 'Micro A2 sans ACRE', input, activity.socialRate, 0, config);
+
+  const portageExpenses = Math.min(money(input.portageProfessionalExpenses), money(input.revenue));
+  const managementRate = Math.min(0.3, Math.max(0, finite(input.portageManagementFeeRate) / 100));
+  const managementFees = money(input.revenue) * managementRate;
+  const portageAvailable = money(input.revenue - portageExpenses - managementFees);
+  const portageGrossSalary = portageAvailable / (1 + config.portage.employerContributionRate);
+  const portageEmployerSocial = portageAvailable - portageGrossSalary;
+  const portageEmployeeSocial = portageGrossSalary * config.portage.employeeContributionRate;
+  const portageNetSalary = money(portageGrossSalary - portageEmployeeSocial);
+  const portageIncomeTax = incrementalHouseholdTax(portageNetSalary, input, config);
+  const portageScenario: ScenarioResult = {
+    id: 'portage', label: 'Portage salarial',
+    personalNet: money(portageNetSalary - portageIncomeTax),
+    socialContributions: portageEmployerSocial + portageEmployeeSocial,
+    incomeTax: portageIncomeTax, corporateTax: 0, capitalLevies: 0,
+    companyCash: 0, holdingCash: 0,
+    protection: { health: 'Régime général salarié', retirement: 'Retraite de base et complémentaire selon salaire cotisé' },
+    warnings: [
+      'Estimation: les frais de gestion, cotisations et provisions varient selon la société de portage et le contrat.',
+      'Les frais professionnels doivent être justifiés et acceptés par la société de portage; ils ne constituent pas du salaire net.',
+      'Indemnité d’apport d’affaires, congés payés, réserve et minimum conventionnel non détaillés séparément.',
+    ],
+    breakdown: { revenue: input.revenue, professionalExpenses: portageExpenses, managementFees, grossSalary: portageGrossSalary, employerContributions: portageEmployerSocial, employeeContributions: portageEmployeeSocial, netSalary: portageNetSalary },
+  };
+
   return {
     operatingProfit,
-    scenarios: [sasuIsScenario, sasuIrScenario, holdingScenario, eurlIrScenario, eurlIsScenario],
+    scenarios: [
+      sasuIsScenario, sasuIrScenario, holdingScenario, eurlIrScenario, eurlIsScenario,
+      microYear1Acre, microYear1NoAcre, microYear2Acre, microYear2NoAcre, portageScenario,
+    ],
     assumptions: [
       `Paramètres ${config.year}; barème IR provisoire tant que la loi de finances n’est pas publiée.`,
       'Montants annuels, arrondis uniquement à l’affichage.',
@@ -236,6 +323,10 @@ export const defaultSimulationInput: SimulationInput = {
   sasuIrProfessionalActivity: true,
   employeeCount: 0,
   employeeGrossMonthlySalary: 0,
+  microActivity: 'bnc',
+  microCreationMonth: 1,
+  portageManagementFeeRate: 7,
+  portageProfessionalExpenses: 0,
 };
 
 /** Empty form state used by the public UI. The historical example stays test-only. */
@@ -254,4 +345,8 @@ export const blankSimulationInput: SimulationInput = {
   sasuIrProfessionalActivity: true,
   employeeCount: 0,
   employeeGrossMonthlySalary: 0,
+  microActivity: 'bnc',
+  microCreationMonth: 0,
+  portageManagementFeeRate: 0,
+  portageProfessionalExpenses: 0,
 };

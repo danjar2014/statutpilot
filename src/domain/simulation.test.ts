@@ -35,12 +35,34 @@ describe('simulation', () => {
     });
   });
 
-  it('reproduces the example operating profit and all five scenarios', () => {
+  it('reproduces the example operating profit and all comparison scenarios', () => {
     const result = simulate(defaultSimulationInput);
     expect(result.operatingProfit).toBe(92_852);
     expect(result.scenarios.map((scenario) => scenario.id)).toEqual([
       'sasu_is', 'sasu_ir', 'sasu_holding', 'eurl_ir', 'eurl_is',
+      'micro_y1_acre', 'micro_y1_no_acre', 'micro_y2_acre', 'micro_y2_no_acre', 'portage',
     ]);
+  });
+
+  it('models the ACRE remainder in year two from the creation quarter', () => {
+    const result = simulate({ ...defaultSimulationInput, revenue: 60_000, microCreationMonth: 8 });
+    const year2Acre = result.scenarios.find((s) => s.id === 'micro_y2_acre')!;
+    const year2NoAcre = result.scenarios.find((s) => s.id === 'micro_y2_no_acre')!;
+    expect(year2Acre.breakdown.acreMonths).toBe(6);
+    expect(year2Acre.socialContributions).toBeLessThan(year2NoAcre.socialContributions);
+  });
+
+  it('deducts portage fees and reimbursable professional expenses before salary', () => {
+    const result = simulate({
+      ...defaultSimulationInput,
+      revenue: 100_000,
+      portageManagementFeeRate: 7,
+      portageProfessionalExpenses: 5_000,
+    });
+    const portage = result.scenarios.find((s) => s.id === 'portage')!;
+    expect(portage.breakdown.managementFees).toBeCloseTo(7_000);
+    expect(portage.breakdown.professionalExpenses).toBe(5_000);
+    expect(portage.breakdown.grossSalary).toBeGreaterThan(0);
   });
 
   it('never returns negative headline amounts when expenses exceed revenue', () => {
