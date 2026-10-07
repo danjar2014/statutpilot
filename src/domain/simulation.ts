@@ -237,3 +237,21 @@ export const defaultSimulationInput: SimulationInput = {
   employeeCount: 0,
   employeeGrossMonthlySalary: 0,
 };
+
+/** Empty form state used by the public UI. The historical example stays test-only. */
+export const blankSimulationInput: SimulationInput = {
+  revenue: 0,
+  expenses: {
+    employees: 0, vehicle: 0, clientMeals: 0, purchases: 0,
+    software: 0, accounting: 0, insurance: 0, rent: 0,
+    telecom: 0, travel: 0, other: 0,
+  },
+  household: { maritalStatus: 'single', spouseTaxableIncome: 0, children: 0 },
+  desiredNetSalary: 0,
+  shareCapital: 0,
+  desiredDividends: 0,
+  holdingReinvestmentRate: 0,
+  sasuIrProfessionalActivity: true,
+  employeeCount: 0,
+  employeeGrossMonthlySalary: 0,
+};

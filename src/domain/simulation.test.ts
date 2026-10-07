@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { corporateTax, defaultSimulationInput, employeePayrollCost, householdShares, progressiveIncomeTax, simulate } from './simulation';
+import { blankSimulationInput, corporateTax, defaultSimulationInput, employeePayrollCost, householdShares, progressiveIncomeTax, simulate } from './simulation';
 
 describe('fiscal calculation primitives', () => {
   it('applies reduced then standard corporate tax', () => {
@@ -19,6 +19,13 @@ describe('fiscal calculation primitives', () => {
 });
 
 describe('simulation', () => {
+  it('starts the public form without prefilled financial figures', () => {
+    expect(blankSimulationInput.revenue).toBe(0);
+    expect(Object.values(blankSimulationInput.expenses).every((value) => value === 0)).toBe(true);
+    expect(blankSimulationInput.desiredNetSalary).toBe(0);
+    expect(simulate(blankSimulationInput).operatingProfit).toBe(0);
+  });
+
   it('calculates annual payroll from headcount and monthly gross salary', () => {
     expect(employeePayrollCost({ employeeCount: 2, employeeGrossMonthlySalary: 3_000 })).toEqual({
       count: 2,
