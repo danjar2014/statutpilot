@@ -33,3 +33,11 @@ table{min-width:100%}th:not(:first-child),td:not(:first-child){min-width:170px}.
   .hero-shell{padding-left:12px;padding-right:12px}.brand{font-size:18px}.brand>span{width:32px;height:32px}.hero-visual{aspect-ratio:4/3}.visual-badge{padding:12px 13px}.visual-badge span{font-size:10px}.panel{padding-left:16px;padding-right:16px}.panel h2{font-size:23px}.payroll-card{padding:16px}.summary-line{align-items:flex-start;gap:10px}.summary-line b{text-align:right;white-space:nowrap}
   .actions{padding:12px 16px;flex-direction:column-reverse}.actions button{width:100%;margin:0}.actions .secondary:disabled{display:none}.scenario-card{flex-basis:calc(100vw - 40px)}.results-title h1{font-size:31px}
 }
+
+footer{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:18px}
+footer strong{color:var(--brand);font-weight:700;text-align:center}
+footer span:last-child{text-align:right}
+@media(max-width:820px){
+  footer{grid-template-columns:1fr}
+  footer strong,footer span:last-child{text-align:left}
+}
