@@ -15,6 +15,7 @@ export type FiscalConfig = {
     laterChildrenShare: number;
   };
   social: {
+    employerContributionRate: number;
     sasuEmployerCostPerNetSalary: number;
     tnsContributionsPerNetIncome: number;
     activityCsgCrdsRate: number;
@@ -55,6 +56,7 @@ export const FISCAL_2026: FiscalConfig = {
   },
   social: {
     // Planning ratios, not statutory rates: actual payroll/TNS bases vary by situation.
+    employerContributionRate: 0.42,
     sasuEmployerCostPerNetSalary: 1.82,
     tnsContributionsPerNetIncome: 0.45,
     activityCsgCrdsRate: 0.097,

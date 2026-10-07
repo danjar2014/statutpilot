@@ -13,6 +13,8 @@ export type SimulationInput = {
   desiredDividends: number;
   holdingReinvestmentRate: number;
   sasuIrProfessionalActivity: boolean;
+  employeeCount: number;
+  employeeGrossMonthlySalary: number;
 };
 
 export type ScenarioId = 'sasu_is' | 'sasu_ir' | 'sasu_holding' | 'eurl_ir' | 'eurl_is';
@@ -36,10 +38,22 @@ export type SimulationResult = {
   assumptions: string[];
 };
 
-const expenses = (values: Record<ExpenseKey, number>) =>
-  Object.values(values).reduce((sum, value) => sum + Math.max(0, finite(value)), 0);
 const finite = (value: number) => Number.isFinite(value) ? value : 0;
 const money = (value: number) => Math.max(0, value);
+
+export function employeePayrollCost(input: Pick<SimulationInput, 'employeeCount' | 'employeeGrossMonthlySalary'>, config = FISCAL_2026) {
+  const count = Math.max(0, Math.floor(finite(input.employeeCount)));
+  const annualGross = count * money(finite(input.employeeGrossMonthlySalary)) * 12;
+  const employerContributions = annualGross * config.social.employerContributionRate;
+  return { count, annualGross, employerContributions, total: annualGross + employerContributions };
+}
+
+const expenses = (input: SimulationInput, config: FiscalConfig) => {
+  const otherExpenses = Object.entries(input.expenses)
+    .filter(([key]) => key !== 'employees')
+    .reduce((sum, [, value]) => sum + Math.max(0, finite(value)), 0);
+  return otherExpenses + employeePayrollCost(input, config).total;
+};
 
 export function corporateTax(profit: number, revenue: number, config = FISCAL_2026): number {
   const taxable = money(profit);
@@ -95,7 +109,7 @@ const tnsProtection = {
 };
 
 export function simulate(input: SimulationInput, config: FiscalConfig = FISCAL_2026): SimulationResult {
-  const operatingProfit = money(finite(input.revenue) - expenses(input.expenses));
+  const operatingProfit = money(finite(input.revenue) - expenses(input, config));
   const desiredSalary = money(input.desiredNetSalary);
   const salaryCost = Math.min(operatingProfit, desiredSalary * config.social.sasuEmployerCostPerNetSalary);
   const paidSasuSalary = salaryCost / config.social.sasuEmployerCostPerNetSalary;
@@ -220,4 +234,6 @@ export const defaultSimulationInput: SimulationInput = {
   desiredDividends: 0,
   holdingReinvestmentRate: 100,
   sasuIrProfessionalActivity: true,
+  employeeCount: 0,
+  employeeGrossMonthlySalary: 0,
 };

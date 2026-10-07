@@ -4,6 +4,8 @@ Simulateur pédagogique en français pour comparer cinq cadres d'exercice : **SA
 
 L'application commence par un questionnaire guidé, calcule les charges modulables et affiche un comparatif lisible du net personnel, des cotisations, de l'IR, de l'IS, des prélèvements sur le capital et de la trésorerie conservée.
 
+Pour les salariés, l'utilisateur renseigne l'effectif et le salaire brut mensuel moyen. L'application calcule le brut annuel, les charges patronales estimées et le coût employeur total. Le taux d'estimation est centralisé dans la configuration annuelle.
+
 > **Avertissement** — Cette application fournit une estimation pédagogique. Elle ne constitue ni un conseil fiscal, comptable, social ou juridique, ni une prise de position de l'administration. Faites valider toute décision par un professionnel et les organismes compétents.
 
 ## Démarrage

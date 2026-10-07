@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { corporateTax, defaultSimulationInput, householdShares, progressiveIncomeTax, simulate } from './simulation';
+import { corporateTax, defaultSimulationInput, employeePayrollCost, householdShares, progressiveIncomeTax, simulate } from './simulation';
 
 describe('fiscal calculation primitives', () => {
   it('applies reduced then standard corporate tax', () => {
@@ -19,6 +19,15 @@ describe('fiscal calculation primitives', () => {
 });
 
 describe('simulation', () => {
+  it('calculates annual payroll from headcount and monthly gross salary', () => {
+    expect(employeePayrollCost({ employeeCount: 2, employeeGrossMonthlySalary: 3_000 })).toEqual({
+      count: 2,
+      annualGross: 72_000,
+      employerContributions: 30_240,
+      total: 102_240,
+    });
+  });
+
   it('reproduces the example operating profit and all five scenarios', () => {
     const result = simulate(defaultSimulationInput);
     expect(result.operatingProfit).toBe(92_852);
