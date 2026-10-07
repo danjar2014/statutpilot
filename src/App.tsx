@@ -43,7 +43,27 @@ export default function App() {
       <button className="back" onClick={() => setResults(false)}><ArrowLeft size={17} /> Modifier mes réponses</button>
       <div className="results-title"><div><p className="eyebrow">Votre comparaison personnalisée</p><h1>Tous les statuts, une lecture claire.</h1><p>Sur la base d’un chiffre d’affaires de {eur.format(input.revenue)} et de {eur.format(totalExpenses)} de charges.</p></div><div className="profit"><span>Résultat avant fiscalité personnelle</span><strong>{eur.format(simulation.operatingProfit)}</strong></div></div>
       <div className="notice"><Info size={19}/><span><strong>Simulation indicative.</strong> Les montants comportent des estimations et ne remplacent pas l’avis d’un expert-comptable ou fiscaliste.</span></div>
-      <div className="comparison" role="region" aria-label="Comparatif des statuts" tabIndex={0}>
+      <div className="mobile-comparison" aria-label="Comparatif des statuts sur mobile">
+        <div className="swipe-hint"><span>Faites glisser pour comparer</span><span>{simulation.scenarios.length} statuts</span></div>
+        <div className="scenario-cards">
+          {simulation.scenarios.map((scenario, index) => <article className="scenario-card" key={scenario.id}>
+            <div className="scenario-heading"><div>{index === 0 && <span className="recommended">Repère</span>}<h2>{scenario.label}</h2></div><span>{index + 1}/{simulation.scenarios.length}</span></div>
+            <div className="scenario-net"><span>Net personnel estimé</span><strong>{eur.format(scenario.personalNet)}</strong></div>
+            <dl>
+              <div><dt>Cotisations sociales</dt><dd>{eur.format(scenario.socialContributions)}</dd></div>
+              <div><dt>Impôt sur le revenu</dt><dd>{eur.format(scenario.incomeTax)}</dd></div>
+              <div><dt>Impôt sur les sociétés</dt><dd>{eur.format(scenario.corporateTax)}</dd></div>
+              <div><dt>Prélèvements sur le capital</dt><dd>{eur.format(scenario.capitalLevies)}</dd></div>
+              <div><dt>Trésorerie société</dt><dd>{eur.format(scenario.companyCash)}</dd></div>
+              <div><dt>Trésorerie holding</dt><dd>{eur.format(scenario.holdingCash)}</dd></div>
+            </dl>
+            <div className="scenario-protection"><ShieldCheck size={17}/><div><strong>{scenario.protection.health}</strong><small>{scenario.protection.retirement}</small></div></div>
+            <button className="mobile-details" onClick={() => setDetails(details === scenario.id ? null : scenario.id)} aria-expanded={details === scenario.id}>Détails et avertissements <ChevronDown size={16}/></button>
+            {details === scenario.id && <div className="mobile-detail-panel">{Object.entries(scenario.breakdown).map(([k,v]) => <span key={k}>{k}<b>{eur.format(v)}</b></span>)}{scenario.warnings.map(w => <p key={w}>⚠ {w}</p>)}</div>}
+          </article>)}
+        </div>
+      </div>
+      <div className="comparison desktop-comparison" role="region" aria-label="Comparatif des statuts" tabIndex={0}>
         <table><thead><tr><th>Indicateur</th>{simulation.scenarios.map((s, i) => <th key={s.id} className={i === 0 ? 'featured' : ''}>{i === 0 && <span className="recommended">Repère</span>}{s.label}</th>)}</tr></thead>
           <tbody>
             <Metric label="Net personnel estimé" values={simulation.scenarios.map(s => s.personalNet)} strong />
