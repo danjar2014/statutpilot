@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blankSimulationInput, corporateTax, defaultSimulationInput, employeePayrollCost, householdShares, progressiveIncomeTax, simulate } from './simulation';
+import { blankSimulationInput, corporateTax, defaultSimulationInput, employeePayrollCost, householdShares, progressiveIncomeTax, recommendScenario, simulate } from './simulation';
 
 describe('fiscal calculation primitives', () => {
   it('applies reduced then standard corporate tax', () => {
@@ -63,6 +63,21 @@ describe('simulation', () => {
     expect(portage.breakdown.managementFees).toBeCloseTo(7_000);
     expect(portage.breakdown.professionalExpenses).toBe(5_000);
     expect(portage.breakdown.grossSalary).toBeGreaterThan(0);
+  });
+
+  it('recommends only among the scenarios selected by the user', () => {
+    const result = simulate(defaultSimulationInput);
+    const selected = result.scenarios.filter(s => ['sasu_is', 'eurl_is'].includes(s.id));
+    const recommendation = recommendScenario(selected, 'personal_net', defaultSimulationInput);
+    expect(selected.map(s => s.id)).toContain(recommendation?.id);
+    expect(recommendation?.personalNet).toBe(Math.max(...selected.map(s => s.personalNet)));
+  });
+
+  it('uses retained company and holding cash for the reinvestment objective', () => {
+    const result = simulate(defaultSimulationInput);
+    const recommendation = recommendScenario(result.scenarios, 'reinvestment', defaultSimulationInput);
+    const retained = (scenario: (typeof result.scenarios)[number]) => scenario.companyCash + scenario.holdingCash;
+    expect(retained(recommendation!)).toBe(Math.max(...result.scenarios.map(retained)));
   });
 
   it('never returns negative headline amounts when expenses exceed revenue', () => {

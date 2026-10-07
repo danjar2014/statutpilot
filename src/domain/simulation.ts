@@ -45,6 +45,31 @@ export type SimulationResult = {
   assumptions: string[];
 };
 
+export type DecisionObjective = 'personal_net' | 'reinvestment' | 'protection' | 'balanced';
+
+const protectionScore = (scenario: ScenarioResult, input: SimulationInput) => {
+  if (scenario.id === 'portage') return 4;
+  if (scenario.id === 'sasu_is' || scenario.id === 'sasu_holding') return input.desiredNetSalary > 0 ? 3 : 1;
+  if (scenario.id === 'eurl_ir' || scenario.id === 'eurl_is') return 2;
+  if (scenario.id.startsWith('micro_')) return 1.5;
+  return 1;
+};
+
+export function recommendScenario(scenarios: ScenarioResult[], objective: DecisionObjective, input: SimulationInput) {
+  if (scenarios.length === 0) return null;
+  const maxPersonal = Math.max(1, ...scenarios.map(s => s.personalNet));
+  const maxRetained = Math.max(1, ...scenarios.map(s => s.companyCash + s.holdingCash));
+  const score = (scenario: ScenarioResult) => {
+    if (objective === 'personal_net') return scenario.personalNet;
+    if (objective === 'reinvestment') return scenario.companyCash + scenario.holdingCash;
+    if (objective === 'protection') return protectionScore(scenario, input);
+    return scenario.personalNet / maxPersonal * 0.55
+      + (scenario.companyCash + scenario.holdingCash) / maxRetained * 0.2
+      + protectionScore(scenario, input) / 4 * 0.25;
+  };
+  return scenarios.reduce((best, scenario) => score(scenario) > score(best) ? scenario : best);
+}
+
 const finite = (value: number) => Number.isFinite(value) ? value : 0;
 const money = (value: number) => Math.max(0, value);
 
