@@ -70,19 +70,25 @@ describe('simulation', () => {
     expect(portage.breakdown.grossSalary).toBeGreaterThan(0);
   });
 
-  it('recommends only among the scenarios selected by the user', () => {
+  it('recommends the best overall fit from the selected scenarios using calculated data', () => {
     const result = simulate(defaultSimulationInput);
-    const selected = result.scenarios.filter(s => ['sasu_is', 'eurl_is'].includes(s.id));
-    const recommendation = recommendScenario(selected, 'personal_net', defaultSimulationInput);
-    expect(selected.map(s => s.id)).toContain(recommendation?.id);
-    expect(recommendation?.personalNet).toBe(Math.max(...selected.map(s => s.personalNet)));
+    const selected = result.scenarios.filter(s => ['sasu_is', 'sasu_holding', 'eurl_is'].includes(s.id));
+    const recommendation = recommendScenario(selected, defaultSimulationInput);
+
+    expect(selected.map(s => s.id)).toContain(recommendation?.scenario.id);
+    expect(recommendation?.reasons.length).toBeGreaterThanOrEqual(2);
+    expect(recommendation?.reasons.join(' ')).toMatch(/€|protection|trésorerie/i);
+    expect(['forte', 'modérée', 'faible']).toContain(recommendation?.confidence);
   });
 
-  it('uses retained company and holding cash for the reinvestment objective', () => {
-    const result = simulate(defaultSimulationInput);
-    const recommendation = recommendScenario(result.scenarios, 'reinvestment', defaultSimulationInput);
-    const retained = (scenario: (typeof result.scenarios)[number]) => scenario.companyCash + scenario.holdingCash;
-    expect(retained(recommendation!)).toBe(Math.max(...result.scenarios.map(retained)));
+  it('uses the requested holding reinvestment to advise from the results rather than asking for a priority', () => {
+    const input = { ...defaultSimulationInput, holdingReinvestmentRate: 100 };
+    const result = simulate(input);
+    const selected = result.scenarios.filter(s => ['sasu_is', 'sasu_holding'].includes(s.id));
+    const recommendation = recommendScenario(selected, input);
+
+    expect(recommendation?.scenario.id).toBe('sasu_holding');
+    expect(recommendation?.reasons.join(' ')).toContain('trésorerie');
   });
 
   it('never returns negative headline amounts when expenses exceed revenue', () => {

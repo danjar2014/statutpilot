@@ -49,7 +49,17 @@ export type SimulationResult = {
   assumptions: string[];
 };
 
-export type DecisionObjective = 'personal_net' | 'reinvestment' | 'protection' | 'balanced';
+export type RecommendationConfidence = 'forte' | 'modérée' | 'faible';
+
+export type ScenarioRecommendation = {
+  scenario: ScenarioResult;
+  runnerUp: ScenarioResult | null;
+  confidence: RecommendationConfidence;
+  score: number;
+  scoreGap: number;
+  reasons: string[];
+  tradeoffs: string[];
+};
 
 const protectionScore = (scenario: ScenarioResult, input: SimulationInput) => {
   if (scenario.id === 'portage') return 4;
@@ -59,19 +69,82 @@ const protectionScore = (scenario: ScenarioResult, input: SimulationInput) => {
   return 1;
 };
 
-export function recommendScenario(scenarios: ScenarioResult[], objective: DecisionObjective, input: SimulationInput) {
+const simplicityScore = (scenario: ScenarioResult) => {
+  if (scenario.id.startsWith('micro_')) return 4;
+  if (scenario.id === 'eurl_ir' || scenario.id === 'portage') return 3;
+  if (scenario.id === 'sasu_holding') return 1;
+  return 2;
+};
+
+const formatAdviceMoney = (value: number) => `${Math.round(value).toLocaleString('fr-FR')} €`;
+
+export function recommendScenario(scenarios: ScenarioResult[], input: SimulationInput): ScenarioRecommendation | null {
   if (scenarios.length === 0) return null;
   const maxPersonal = Math.max(1, ...scenarios.map(s => s.personalNet));
   const maxRetained = Math.max(1, ...scenarios.map(s => s.companyCash + s.holdingCash));
-  const score = (scenario: ScenarioResult) => {
-    if (objective === 'personal_net') return scenario.personalNet;
-    if (objective === 'reinvestment') return scenario.companyCash + scenario.holdingCash;
-    if (objective === 'protection') return protectionScore(scenario, input);
-    return scenario.personalNet / maxPersonal * 0.55
-      + (scenario.companyCash + scenario.holdingCash) / maxRetained * 0.2
-      + protectionScore(scenario, input) / 4 * 0.25;
+  const maxEconomicValue = Math.max(1, ...scenarios.map(s => s.personalNet + s.companyCash + s.holdingCash));
+  const wantsHoldingReinvestment = input.holdingReinvestmentRate >= 50
+    && scenarios.some(scenario => scenario.id === 'sasu_holding');
+  const wantsSalaryProtection = Boolean(input.sasuSalaryEnabled && input.sasuDesiredNetSalary > 0)
+    || input.desiredNetSalary > 0;
+  const weights = wantsHoldingReinvestment
+    ? { personal: 0.22, retained: 0.28, economic: 0.2, protection: 0.1, fit: 0.15, simplicity: 0.05 }
+    : wantsSalaryProtection
+      ? { personal: 0.35, retained: 0.15, economic: 0.22, protection: 0.2, fit: 0.03, simplicity: 0.05 }
+      : { personal: 0.4, retained: 0.15, economic: 0.25, protection: 0.1, fit: 0.05, simplicity: 0.05 };
+  const structureFit = (scenario: ScenarioResult) => {
+    if (wantsHoldingReinvestment) return scenario.id === 'sasu_holding' ? 1 : 0.25;
+    if (wantsSalaryProtection && protectionScore(scenario, input) >= 3) return 1;
+    return 0.5;
   };
-  return scenarios.reduce((best, scenario) => score(scenario) > score(best) ? scenario : best);
+  const score = (scenario: ScenarioResult) => {
+    const retained = scenario.companyCash + scenario.holdingCash;
+    const economicValue = scenario.personalNet + retained;
+    const invalidScenarioPenalty = scenario.warnings.some(warning => /supérieur au seuil|titre d’alerte/i.test(warning)) ? 0.45 : 1;
+    return 100 * invalidScenarioPenalty * (
+      scenario.personalNet / maxPersonal * weights.personal
+      + retained / maxRetained * weights.retained
+      + economicValue / maxEconomicValue * weights.economic
+      + protectionScore(scenario, input) / 4 * weights.protection
+      + structureFit(scenario) * weights.fit
+      + simplicityScore(scenario) / 4 * weights.simplicity
+    );
+  };
+  const ranked = [...scenarios].sort((left, right) => score(right) - score(left));
+  const scenario = ranked[0];
+  const runnerUp = ranked[1] ?? null;
+  const scenarioScore = score(scenario);
+  const scoreGap = runnerUp ? scenarioScore - score(runnerUp) : scenarioScore;
+  const confidence: RecommendationConfidence = scoreGap >= 12 ? 'forte' : scoreGap >= 5 ? 'modérée' : 'faible';
+  const retained = scenario.companyCash + scenario.holdingCash;
+  const maxProtection = Math.max(...scenarios.map(candidate => protectionScore(candidate, input)));
+  const reasons: string[] = [];
+
+  if (maxPersonal <= 1) {
+    reasons.push('Aucune sortie personnelle n’a été demandée : le conseil privilégie donc le capital conservé et sa destination.');
+  } else if (scenario.personalNet >= maxPersonal * 0.98) {
+    reasons.push(`Il offre le meilleur net personnel estimé, soit ${formatAdviceMoney(scenario.personalNet)} par an.`);
+  } else {
+    reasons.push(`Il préserve ${formatAdviceMoney(scenario.personalNet)} de net personnel tout en améliorant les autres critères.`);
+  }
+  if (retained > 0 && retained >= maxRetained * 0.95) {
+    reasons.push(`Il conserve ${formatAdviceMoney(retained)} de trésorerie dans la société ou la holding.`);
+  }
+  if (wantsHoldingReinvestment && scenario.id === 'sasu_holding') {
+    reasons.push(`Votre souhait de réinvestir ${Math.round(input.holdingReinvestmentRate)} % correspond directement à une trésorerie logée dans la holding.`);
+  }
+  if (protectionScore(scenario, input) === maxProtection && maxProtection >= 3) {
+    reasons.push('Il fait partie des options offrant la meilleure protection sociale estimée avec la rémunération saisie.');
+  }
+  if (reasons.length < 2) {
+    reasons.push(`Sa valeur économique estimée atteint ${formatAdviceMoney(scenario.personalNet + retained)}, net personnel et trésorerie cumulés.`);
+  }
+
+  const tradeoffs = scenario.warnings.slice(0, 2);
+  if (runnerUp && confidence === 'faible') {
+    tradeoffs.unshift(`L’écart avec ${runnerUp.label} est faible : les hypothèses doivent être confirmées avant décision.`);
+  }
+  return { scenario, runnerUp, confidence, score: scenarioScore, scoreGap, reasons, tradeoffs };
 }
 
 const finite = (value: number) => Number.isFinite(value) ? value : 0;
